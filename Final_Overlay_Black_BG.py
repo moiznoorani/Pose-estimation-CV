@@ -135,8 +135,8 @@ def generate_video(csv_path, output_path, frame_size=(3840, 2160), fps=60, bg_co
     print(f"✅ Animation saved to: {output_path}")
 def main():
     # Specify paths for the input CSV and the output video
-    csv_path = 'Football_throw_video test copy\output_csv\combined_1_cleaned.csv'  # Replace with the actual path to your CSV file
-    output_path = 'Videos\trimmed_mean_output\Black_BG test1.mp4'  # The path where the output video will be saved
+    csv_path = r'Football_throw_video test copy\output_csv\combined_1_cleaned.csv'
+    output_path = r'Videos\trimmed_mean_output\Black_BG test1.mp4'
 
     # Specify the joints and connections for the skeleton
     joints = ['shoulder_left', 'shoulder_right', 'elbow_left', 'elbow_right', 'wrist_left', 'wrist_right', 'hip_left', 'hip_right', 'knee_left', 'knee_right', 'ankle_left', 'ankle_right']

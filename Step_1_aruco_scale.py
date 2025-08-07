@@ -1,49 +1,46 @@
+# ------------------------------
+# File: Step_1_aruco_scale.py
+# ------------------------------
 import os
 import cv2
 import numpy as np
 import glob
 
-# --- CONFIGURATION ---
-VIDEO_DIR = "C:\Users\noora\OneDrive - MNSCU (1)\Pose-estimation-CV\Videos"
+# --- CONSTANTS ---
 MARKER_ID = 0
-MARKER_SIZE_MM = 50  # Printed marker size in mm
 
+# --- SETUP ---
+aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+parameters = cv2.aruco.DetectorParameters()
+detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
 
 def detect_aruco_marker(frame):
     """
-    Detects an ArUco marker in the given frame.
+    Detects the ArUco marker in the provided frame.
 
     Preconditions:
-        - `frame` is a valid image in the form of a NumPy array (e.g., a frame from a video capture).
-        - The image must be in BGR color format.
+        - frame: a valid BGR image (np.ndarray) from a video.
 
     Postconditions:
-        - Returns the corner coordinates of the detected marker if found, else returns None.
-        - The output is a 4x2 NumPy array representing the corner coordinates of the detected marker.
+        - Returns a 4x2 NumPy array of marker corners if found; otherwise None.
     """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-    detector_params = cv2.aruco.DetectorParameters()
-    detector = cv2.aruco.ArucoDetector(aruco_dict, detector_params)
-
     corners, ids, _ = detector.detectMarkers(gray)
-
     if ids is not None:
         for i, marker_id in enumerate(ids.flatten()):
             if marker_id == MARKER_ID:
                 return corners[i].reshape((4, 2))
     return None
 
-
 def get_marker_pixel_size(marker_corners):
     """
-    Calculates the average pixel size of the ArUco marker from its corners.
+    Calculates the average size (in pixels) of the marker using its 4 corners.
 
     Preconditions:
-        - `marker_corners` is a 4x2 NumPy array containing the pixel coordinates of the marker's corners.
+        - marker_corners: a 4x2 array of corner points.
 
     Postconditions:
-        - Returns the average pixel size (in pixels) of the marker, calculated from its corners.
+        - Returns a float representing the marker's pixel size.
     """
     tl, tr, br, bl = marker_corners
     top = np.linalg.norm(tr - tl)
@@ -52,21 +49,19 @@ def get_marker_pixel_size(marker_corners):
     left = np.linalg.norm(tl - bl)
     return (top + right + bottom + left) / 4
 
-
-def save_debug_marker_frame(frame, marker_corners, marker_px_size, video_name, scaled=False):
+def save_debug_marker_frame(frame, marker_corners, marker_px_size, video_name, video_dir, scaled=False):
     """
-    Saves a debug image of the frame with the detected ArUco marker and its size displayed.
+    Saves an annotated debug image showing the detected marker and its size.
 
     Preconditions:
-        - `frame` is a valid image (NumPy array).
-        - `marker_corners` is a 4x2 NumPy array with the coordinates of the detected marker.
-        - `marker_px_size` is a float representing the size of the marker in pixels.
-        - `video_name` is the name of the video file being processed.
-        - `scaled` is a boolean indicating whether the marker is scaled to a fixed size.
+        - frame: a BGR image (np.ndarray)
+        - marker_corners: 4x2 array of marker corners
+        - marker_px_size: float of marker's pixel size
+        - video_name: string, original video file name
+        - video_dir: root directory to store debug image
 
     Postconditions:
-        - A debug image is saved showing the detected marker and its size at the given location.
-        - A file path to the saved debug image is printed.
+        - Saves an annotated JPEG image in a Debug_photo folder.
     """
     debug_frame = frame.copy()
     corners = marker_corners.astype(int)
@@ -110,27 +105,24 @@ def save_debug_marker_frame(frame, marker_corners, marker_px_size, video_name, s
         debug_frame[y1:y2, x1:x2] = cv2.add(bg, fg)
 
     suffix = "scaled" if scaled else "baseline"
-    debug_folder = os.path.join(VIDEO_DIR, "Debug_photo")
+    debug_folder = os.path.join(video_dir, "Debug_photo")
     os.makedirs(debug_folder, exist_ok=True)
 
     debug_path = os.path.join(debug_folder, f"debug_marker_frame_{suffix}_{os.path.splitext(os.path.basename(video_name))[0]}.jpg")
     cv2.imwrite(debug_path, debug_frame)
     print(f"🖼️ Saved debug image: {debug_path}")
 
-
 def resize_video_fixed_resolution(video_path, desired_marker_size_px, output_path):
     """
-    Resizes the video frames so that the ArUco marker appears with a fixed size using the scaling factor
-    calculated from the first frame.
+    Scales a video so that the ArUco marker in the first frame has a fixed pixel size.
 
     Preconditions:
-        - `video_path` is the path to the input video file.
-        - `desired_marker_size_px` is the desired marker size in pixels.
-        - `output_path` is the path to save the scaled video.
+        - video_path: input video file path
+        - desired_marker_size_px: float, desired marker size in pixels
+        - output_path: output video save path
 
     Postconditions:
-        - The video is resized such that the ArUco marker appears with the desired pixel size.
-        - The resized video is saved at `output_path`.
+        - Saves a scaled video with consistent marker size.
     """
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -138,43 +130,35 @@ def resize_video_fixed_resolution(video_path, desired_marker_size_px, output_pat
     in_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     out_w, out_h = in_w, in_h
 
-    # Initialize the VideoWriter
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(output_path, fourcc, fps, (out_w, out_h))
 
-    # Process the first frame to get the scaling factor
     ret, frame = cap.read()
     if not ret:
         print("❌ Couldn't read the first frame.")
         return
 
-    # Detect the ArUco marker in the first frame
     marker_corners = detect_aruco_marker(frame)
     if marker_corners is None:
         print("❌ Marker not found in the first frame.")
         return
 
-    # Get the pixel size of the marker in the first frame
     marker_px = get_marker_pixel_size(marker_corners)
     print(f"📏 Detected marker size in first frame: {marker_px:.2f} pixels")
 
-    # Calculate the scaling factor to make the marker the desired size
     scale = desired_marker_size_px / marker_px
     print(f"🔄 Scaling factor for the video: {scale:.4f}")
 
-    # Apply the same scaling factor to all frames
-    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset to the first frame
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Resize the frame using the calculated scaling factor
         new_w = int(in_w * scale)
         new_h = int(in_h * scale)
         resized = cv2.resize(frame, (new_w, new_h))
 
-        # If the resized frame is smaller than the output resolution, center it on a black background
         if scale < 1:
             result = np.zeros((out_h, out_w, 3), dtype=np.uint8)
             x_offset = (out_w - new_w) // 2
@@ -185,27 +169,23 @@ def resize_video_fixed_resolution(video_path, desired_marker_size_px, output_pat
             y_start = (new_h - out_h) // 2
             result = resized[y_start:y_start+out_h, x_start:x_start+out_w]
 
-        # Write the resized frame to the output video
         out.write(result)
 
     cap.release()
     out.release()
     print(f"✅ Video saved to: {output_path}")
 
-
 def process_videos(video_dir, desired_marker_size_px):
     """
-    Processes all video files in the specified directory, scales them to the desired marker size, and saves the results.
-    
+    Processes all videos in a directory and resizes them to standardize ArUco marker size.
+
     Preconditions:
-        - `video_dir` is the directory containing video files in supported formats (e.g., mp4, mov).
-        - `desired_marker_size_px` is the desired marker size in pixels for scaling.
-    
+        - video_dir: directory with video files
+        - desired_marker_size_px: float, desired marker size in pixels
+
     Postconditions:
-        - All videos in the specified directory are processed to have the marker at the desired size.
-        - Debug images are saved showing marker detection and scaling.
+        - Outputs scaled video(s) and debug image(s).
     """
-    # Get all video files (mp4, mov, MP4, MOV)
     video_files = sorted(glob.glob(os.path.join(video_dir, "*.mp4")) +
                          glob.glob(os.path.join(video_dir, "*.mov")) +
                          glob.glob(os.path.join(video_dir, "*.MP4")) +
@@ -216,7 +196,6 @@ def process_videos(video_dir, desired_marker_size_px):
     for idx, video_path in enumerate(video_files):
         print(f"\nProcessing {video_path}...")
 
-        # Open the video file and read the 60th frame
         cap = cv2.VideoCapture(video_path)
         cap.set(cv2.CAP_PROP_POS_FRAMES, 60)
         ret, frame = cap.read()
@@ -225,34 +204,27 @@ def process_videos(video_dir, desired_marker_size_px):
             print("❌ Couldn't read frame 60. Skipping...")
             continue
 
-        # Detect the ArUco marker in the frame
         marker_corners = detect_aruco_marker(frame)
         if marker_corners is None:
             print("❌ Marker not found. Skipping...")
             continue
 
-        # Get the pixel size of the detected marker
         marker_px = get_marker_pixel_size(marker_corners)
         print(f"📏 Detected marker size: {marker_px:.2f} pixels")
 
-        # Save a debug image with the marker details (baseline for first video)
         if idx == 0:
-            save_debug_marker_frame(frame, marker_corners, marker_px, video_path, scaled=False)
+            save_debug_marker_frame(frame, marker_corners, marker_px, video_path, video_dir, scaled=False)
             print(f"✅ Set as baseline marker (ID {MARKER_ID}, {marker_px:.2f}px)")
 
-        # Calculate scaling factor based on the baseline marker size
         scale = desired_marker_size_px / marker_px
         print(f"🔄 Scaling factor for video: {scale:.4f}")
 
-        # Set the output file path
-        SCALED_VIDEO_FOLDER = os.path.join(video_dir, "output_scaled")
-        output_file = os.path.join(SCALED_VIDEO_FOLDER ,f"scaled_{os.path.basename(video_path)}")
-        
+        scaled_dir = os.path.join(video_dir, "output_scaled")
+        os.makedirs(scaled_dir, exist_ok=True)
+        output_file = os.path.join(scaled_dir, f"scaled_{os.path.basename(video_path)}")
 
-        # Resize the video based on the scale
         resize_video_fixed_resolution(video_path, desired_marker_size_px, output_file)
         print(f"✅ Saved scaled video to: {output_file}")
 
-        # Save debug image showing the scaled marker size
-        save_debug_marker_frame(frame, marker_corners, desired_marker_size_px, video_path, scaled=True)
+        save_debug_marker_frame(frame, marker_corners, desired_marker_size_px, video_path, video_dir, scaled=True)
         print(f"✅ Final scaled marker size: {desired_marker_size_px:.2f} px")

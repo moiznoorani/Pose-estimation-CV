@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import pandas as pd
 
-def adaptive_zscore_filter_weighted(values, window_size=10, base_z=2.0, std_scale=0.2):
+def adaptive_zscore_filter_weighted(values, window_size=5, base_z=6.0, std_scale=0.0):
     """
     Adaptive Z-score filtering with weighted averaging for outlier removal.
 
@@ -71,7 +71,7 @@ def process_csv_cleanup(input_dir, output_dir):
         for col in marker_columns:
             if col in df.columns:
                 print(f"  → Cleaning column: {col}")
-                cleaned_values = adaptive_zscore_filter_weighted(df[col].fillna(0).values)
+                cleaned_values = adaptive_zscore_filter_weighted(df[col].values)
                 df[f"{col}_cleaned"] = cleaned_values
             else:
                 print(f"  [!] Skipped missing column: {col}")

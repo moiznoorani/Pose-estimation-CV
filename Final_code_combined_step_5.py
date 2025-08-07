@@ -8,7 +8,7 @@ from Step_4_trimmed_mean import trim_mean_poses  # Import the trimmed mean funct
 from Step_5_generate_video_on_BG import generate_video  # Import the video generation function
 
 # --- CONFIGURATION ---
-VIDEO_DIR = "C:\Users\noora\OneDrive - MNSCU (1)\Pose-estimation-CV\Videos"
+VIDEO_DIR = r"C:\Users\noora\OneDrive - MNSCU (1)\Pose-estimation-CV\Videos"
 DESIRED_MARKER_SIZE_PX = 70  # Desired marker size in pixels
 
 # Folder containing the scaled video files (output from aruco_scale)
